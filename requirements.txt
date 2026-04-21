@@ -1,0 +1,9 @@
+torch
+biopython
+numpy
+pandas
+scikit-learn
+matplotlib
+seaborn
+logomaker
+tqdm

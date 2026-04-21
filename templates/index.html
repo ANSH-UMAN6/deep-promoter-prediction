@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>DNA Promoter Predictor</title>
+   
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    
+    <style>
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
+            color: white;
+            text-align: center;
+            padding: 20px;
+        }
+
+        h1 {
+            margin-bottom: 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: auto;
+            padding: 20px;
+        }
+
+        textarea, input {
+            width: 80%;
+            padding: 12px;
+            margin: 10px;
+            border-radius: 10px;
+            border: none;
+            outline: none;
+        }
+
+        button {
+            padding: 12px 25px;
+            border-radius: 10px;
+            border: none;
+            background: linear-gradient(45deg, #00c3ff, #00ffcc);
+            font-weight: bold;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+
+        button:hover {
+            transform: scale(1.05);
+            box-shadow: 0px 0px 15px #00ffcc;
+        }
+
+        .card {
+            background: rgba(255,255,255,0.1);
+            margin: 10px;
+            padding: 15px;
+            border-radius: 10px;
+            backdrop-filter: blur(10px);
+        }
+
+        .promoter {
+            color: #00ff88;
+        }
+
+        .non-promoter {
+            color: #ff4d4d;
+        }
+
+        .loader {
+            display: none;
+            margin: 20px;
+            border: 6px solid #f3f3f3;
+            border-top: 6px solid #00ffcc;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            100% { transform: rotate(360deg); }
+        }
+       
+    </style>
+</head>
+
+<body>
+
+<div class="container">
+
+<h1>🧬 DNA Promoter Predictor</h1>
+
+<!-- Manual -->
+<h2>Manual Input</h2>
+
+<form id="predictForm">
+    <textarea name="sequence" placeholder="Enter DNA sequence..."></textarea><br>
+    <button type="submit">Predict</button>
+</form>
+
+<div id="manualResult"></div>
+
+<hr>
+
+<!-- Ensembl -->
+<h2>Fetch from Ensembl</h2>
+
+<form id="ensemblForm">
+
+    <select name="organism">
+        <option value="homo_sapiens">Human</option>
+        <option value="mus_musculus">Mouse</option>
+        
+    </select>
+
+    <br>
+
+    <input type="text" name="chromosome" placeholder="Chromosome (e.g. 1)">
+    
+    <input type="number" name="start" placeholder="Start position">
+    
+    <input type="number" name="end" placeholder="End position">
+
+    <br>
+
+    <button type="submit">Fetch & Predict</button>
+
+</form>
+
+<div class="loader" id="loader"></div>
+<div id="ensemblResult"></div>
+
+</div>
+
+<script>
+// Manual Prediction
+document.getElementById("predictForm").onsubmit = async (e) => {
+    e.preventDefault();
+
+    let formData = new FormData(e.target);
+
+    let res = await fetch("/predict", {
+        method: "POST",
+        body: formData
+    });
+
+    let data = await res.json();
+
+    document.getElementById("manualResult").innerHTML =
+        `<div class="card ${data.prediction === 'Promoter' ? 'promoter' : 'non-promoter'}">
+            <b>${data.prediction}</b> (Confidence: ${data.confidence})
+        </div>`;
+};
+
+
+// Ensembl Prediction (🔥 FIXED)
+document.getElementById("ensemblForm").onsubmit = async (e) => {
+    e.preventDefault();
+
+    document.getElementById("loader").style.display = "block";
+    document.getElementById("ensemblResult").innerHTML = "";
+
+    let formData = new FormData(e.target);
+
+    let res = await fetch("/predict_organism", {
+        method: "POST",
+        body: formData
+    });
+
+    let data = await res.json();
+    console.log("BACKEND DATA:", data); // debug
+
+    document.getElementById("loader").style.display = "none";
+
+    let html = "<h3>Results:</h3>";
+
+    // 🔥 Handle both formats (safe)
+    let results = data.results ? data.results : data;
+
+    results.forEach(item => {
+        html += `
+        <div class="card ${item.label === 'Promoter' ? 'promoter' : 'non-promoter'}">
+            ${item.sequence}<br>
+            <b>${item.label}</b> (Score: ${item.score})
+        </div>`;
+    });
+
+    // 🔥 Add graph only if exists
+    if (data.graph) {
+        html += `
+        <h3>📊 Prediction Graph</h3>
+        <img src="/static/${data.graph}?t=${Date.now()}" width="400">
+        `;
+    }
+
+    document.getElementById("ensemblResult").innerHTML = html;
+};
+</script>
+
+</body>
+</html>
